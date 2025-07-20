@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>2048 最適手（最大1024）</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 30px; }
+    #grid { display: grid; grid-template-columns: repeat(4, 60px); gap: 5px; justify-content: center; }
+    .cell {
+      width: 60px; height: 60px;
+      font-size: 18px; line-height: 60px;
+      text-align: center;
+      background: #eee;
+      cursor: pointer;
+      user-select: none;
+    }
+    button { margin-top: 20px; padding: 10px 20px; font-size: 16px; }
+    #result { margin-top: 15px; font-size: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>2048 最適手AI（最大1024）</h2>
+  <p>マスをクリックして値を設定（最大1024）</p>
+  <div id="grid"></div>
+  <button onclick="findBestMove()">最適手を表示</button>
+  <div id="result"></div>
+
+  <script>
+    const values = [0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
+    const grid = document.getElementById("grid");
+
+    for (let i = 0; i < 16; i++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.dataset.index = "0";
+      cell.textContent = "0";
+      cell.onclick = () => {
+        let idx = parseInt(cell.dataset.index);
+        idx = (idx + 1) % values.length;
+        cell.dataset.index = idx;
+        cell.textContent = values[idx] === 0 ? "" : values[idx];
+      };
+      grid.appendChild(cell);
+    }
+
+    const maxMergeValue = 1024;
+    const directions = ['↑ 上', '→ 右', '↓ 下', '← 左'];
+
+    function readGrid() {
+      const cells = document.querySelectorAll('.cell');
+      const valuesFlat = Array.from(cells).map(c => parseInt(c.textContent) || 0);
+      const g = [];
+      for (let i = 0; i < 4; i++) g.push(valuesFlat.slice(i * 4, i * 4 + 4));
+      return g;
+    }
+
+    function copyGrid(grid) {
+      return grid.map(row => row.slice());
+    }
+
+    function rotate(grid) {
+      const newGrid = Array.from({ length: 4 }, () => Array(4).fill(0));
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+          newGrid[c][3 - r] = grid[r][c];
+      return newGrid;
+    }
+
+    function moveGrid(grid, dir) {
+      let moved = false;
+      let g = copyGrid(grid);
+      for (let i = 0; i < dir; i++) g = rotate(g);
+      for (let r = 0; r < 4; r++) {
+        let row = g[r].filter(v => v !== 0);
+        for (let c = 0; c < row.length - 1; c++) {
+          if (row[c] === row[c + 1] && row[c] !== maxMergeValue) {
+            row[c] *= 2;
+            row[c + 1] = 0;
+            moved = true;
+          }
+        }
+        row = row.filter(v => v !== 0);
+        while (row.length < 4) row.push(0);
+        if (row.some((v, i) => g[r][i] !== v)) moved = true;
+        g[r] = row;
+      }
+      for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g);
+      return moved ? g : null;
+    }
+
+    function evaluate(grid) {
+      let score = 0, empty = 0;
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++) {
+          if (grid[r][c] === 0) empty++;
+          score += grid[r][c];
+        }
+      return score + empty * 10;
+    }
+
+    function findBestMove() {
+      const original = readGrid();
+      let bestDir = null, bestScore = -Infinity;
+      for (let dir = 0; dir < 4; dir++) {
+        const newGrid = moveGrid(original, dir);
+        if (newGrid) {
+          const score = evaluate(newGrid);
+          if (score > bestScore) {
+            bestScore = score;
+            bestDir = dir;
+          }
+        }
+      }
+      const result = document.getElementById('result');
+      result.textContent = bestDir !== null ? `最適手: ${directions[bestDir]}` : '有効な手がありません（詰み）';
+    }
+  </script>
+</body>
+</html>
